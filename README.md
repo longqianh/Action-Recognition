@@ -1,1 +1,3 @@
-# AscendFallDetection
+# AscendProj
+
+Action recognition.
