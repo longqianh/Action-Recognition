@@ -2,7 +2,7 @@
 
 A Demo Project action recognition.
 
-Co-workers: Hongyu Chen, Yuyi Fan, Linlong Zhong
+Co-workers: Hongyu Chen, Yifan Yu, Longzhong Lin
 
 ## Module List
 
