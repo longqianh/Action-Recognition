@@ -5,8 +5,7 @@ sys.path.append('..')
 import abc
 import numpy as np
 import tensorflow as tf
-# import tensorflow.contrib.slim as slim
-import tf_slim as slim # need to do `pip3 install --upgrade tf_slim1
+import tf_slim as slim  # need to do `pip3 install --upgrade tf_slim1
 from tf_pose.common import to_str
 from tf_pose import common
 

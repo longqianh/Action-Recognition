@@ -1,13 +1,13 @@
 from enum import Enum
 
-import tensorflow as tf
+from tensorflow.nn import relu
 import cv2
 
 
 regularizer_conv = 0.004
 regularizer_dsconv = 0.0004
 batchnorm_fused = True
-activation_fn = tf.nn.relu
+activation_fn = relu
 
 
 class CocoPart(Enum):
@@ -91,13 +91,17 @@ class MPIIPart(Enum):
                 pose_2d_mpii.append((0, 0))
                 visibilty.append(False)
                 continue
-            pose_2d_mpii.append((human.body_parts[coco.value].x, human.body_parts[coco.value].y))
+            pose_2d_mpii.append(
+                (human.body_parts[coco.value].x, human.body_parts[coco.value].y))
             visibilty.append(True)
         return pose_2d_mpii, visibilty
 
+
 CocoPairs = [
-    (1, 2), (1, 5), (2, 3), (3, 4), (5, 6), (6, 7), (1, 8), (8, 9), (9, 10), (1, 11),
-    (11, 12), (12, 13), (1, 0), (0, 14), (14, 16), (0, 15), (15, 17), (2, 16), (5, 17)
+    (1, 2), (1, 5), (2, 3), (3, 4), (5, 6), (6,
+                                             7), (1, 8), (8, 9), (9, 10), (1, 11),
+    (11, 12), (12, 13), (1, 0), (0, 14), (14,
+                                          16), (0, 15), (15, 17), (2, 16), (5, 17)
 ]   # = 19
 CocoPairsRender = CocoPairs[:-2]
 # CocoPairsNetwork = [
@@ -106,7 +110,8 @@ CocoPairsRender = CocoPairs[:-2]
 #  ]  # = 19
 
 CocoColors = [[255, 0, 0], [255, 85, 0], [255, 170, 0], [255, 255, 0], [170, 255, 0], [85, 255, 0], [0, 255, 0],
-              [0, 255, 85], [0, 255, 170], [0, 255, 255], [0, 170, 255], [0, 85, 255], [0, 0, 255], [85, 0, 255],
+              [0, 255, 85], [0, 255, 170], [0, 255, 255], [
+                  0, 170, 255], [0, 85, 255], [0, 0, 255], [85, 0, 255],
               [170, 0, 255], [255, 0, 255], [255, 0, 170], [255, 0, 85]]
 
 

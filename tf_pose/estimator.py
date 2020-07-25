@@ -1,21 +1,26 @@
-import sys
-sys.path.append('..')
+# import sys
+# sys.path.append('..')
+import time
 import logging
-import math
-import slidingwindow as sw
-
 import cv2
 import numpy as np
+from math import sqrt
 import tensorflow as tf
-import time
 
-from tf_pose import common
-from tf_pose.common import CocoPart
-from tf_pose.tensblur.smoother import Smoother
+import common
+from common import CocoPart
+
+# from tensblur.smoother import Smoother # 用的时候再import
+# import slidingwindow as sw # 用的时候再import
+
+# from tf_pose import common
+# from tf_pose.common import CocoPart
+# from tf_pose.tensblur.smoother import Smoother
 # import tensorflow.contrib.tensorrt as trt
 
 try:
-    from tf_pose.pafprocess import pafprocess
+    # from tf_pose.pafprocess import pafprocess
+    from pafprocess import pafprocess
 except ModuleNotFoundError as e:
     print(e)
     print('you need to build c++ library for pafprocess. See : https://github.com/ildoonet/tf-pose-estimation/tree/master/tf_pose/pafprocess')
@@ -119,7 +124,7 @@ class Human:
         if is_reye and is_leye:
             size = max(size, img_w * (part_reye.x - part_leye.x) * 2.0)
             size = max(size,
-                       img_w * math.sqrt((part_reye.x - part_leye.x) ** 2 + (part_reye.y - part_leye.y) ** 2) * 2.0)
+                       img_w * sqrt((part_reye.x - part_leye.x) ** 2 + (part_reye.y - part_leye.y) ** 2) * 2.0)
 
         if mode == 1:
             if not is_reye and not is_leye:
@@ -317,33 +322,33 @@ class TfPoseEstimator:
             graph_def = tf.compat.v1.GraphDef()
             graph_def.ParseFromString(f.read())
 
-        if trt_bool is True:
-            output_nodes = ["Openpose/concat_stage7"]
-            graph_def = trt.create_inference_graph(
-                graph_def,
-                output_nodes,
-                max_batch_size=1,
-                max_workspace_size_bytes=1 << 20,
-                precision_mode="FP16",
-                # precision_mode="INT8",
-                minimum_segment_size=3,
-                is_dynamic_op=True,
-                maximum_cached_engines=int(1e3),
-                use_calibration=True,
-            )
+        # if trt_bool is True:
+        #     output_nodes = ["Openpose/concat_stage7"]
+        #     graph_def = trt.create_inference_graph(
+        #         graph_def,
+        #         output_nodes,
+        #         max_batch_size=1,
+        #         max_workspace_size_bytes=1 << 20,
+        #         precision_mode="FP16",
+        #         # precision_mode="INT8",
+        #         minimum_segment_size=3,
+        #         is_dynamic_op=True,
+        #         maximum_cached_engines=int(1e3),
+        #         use_calibration=True,
+        #     )
 
         self.graph = tf.compat.v1.get_default_graph()
         tf.import_graph_def(graph_def, name='TfPoseEstimator')
         self.persistent_sess = tf.compat.v1.Session(
             graph=self.graph, config=tf_config)
 
-        for ts in [n.name for n in tf.compat.v1.get_default_graph().as_graph_def().node]:
-            print(ts)
+        # for ts in [n.name for n in tf.compat.v1.get_default_graph().as_graph_def().node]:
+        #     print(ts)
 
         self.tensor_image = self.graph.get_tensor_by_name(
             'TfPoseEstimator/image:0')
         self.tensor_output = self.graph.get_tensor_by_name(
-            'TfPoseEstimator/Openpose/concat_stage7:0')
+            'TfPoseEstimator/Openpose/concat_stage7')
         self.tensor_heatMat = self.tensor_output[:, :, :, :19]
         self.tensor_pafMat = self.tensor_output[:, :, :, 19:]
         self.upsample_size = tf.compat.v1.placeholder(
@@ -352,6 +357,8 @@ class TfPoseEstimator:
                                                  method=tf.image.ResizeMethod.AREA, name='upsample_heatmat')
         self.tensor_pafMat_up = tf.image.resize(self.tensor_output[:, :, :, 19:], self.upsample_size,
                                                 method=tf.image.ResizeMethod.AREA, name='upsample_pafmat')
+
+        from tensblur.smoother import Smoother
         if trt_bool is True:
             smoother = Smoother({'data': self.tensor_heatMat_up}, 25, 3.0, 19)
         else:
@@ -423,7 +430,7 @@ class TfPoseEstimator:
         centers = {}
         for human in humans:
             # draw point
-            for i in range(common.CocoPart.Background.value):
+            for i in range(CocoPart.Background.value):
                 if i not in human.body_parts.keys():
                     continue
 
@@ -449,6 +456,8 @@ class TfPoseEstimator:
         def get_base_scale(s, w, h): return max(
             self.target_size[0] / float(h), self.target_size[1] / float(w)) * s
         img_h, img_w = npimg.shape[:2]
+
+        import slidingwindow as sw
 
         if scale is None:
             if npimg.shape[:2] != (self.target_size[1], self.target_size[0]):
@@ -598,16 +607,16 @@ class TfPoseEstimator:
 
 
 # if __name__ == '__main__':
-    # import pickle
+# import pickle
 
-    # f = open('./etcs/heatpaf1.pkl', 'rb')
-    # data = pickle.load(f)
-    # logger.info('size={}'.format(data['heatMat'].shape))
-    # f.close()
+# f = open('./etcs/heatpaf1.pkl', 'rb')
+# data = pickle.load(f)
+# logger.info('size={}'.format(data['heatMat'].shape))
+# f.close()
 
-    # t = time.time()
-    # humans = PoseEstimator.estimate_paf(
-    #     data['peaks'], data['heatMat'], data['pafMat'])
-    # dt = time.time() - t
-    # t = time.time()
-    # logger.info('elapsed #humans=%d time=%.8f' % (len(humans), dt))
+# t = time.time()
+# humans = PoseEstimator.estimate_paf(
+#     data['peaks'], data['heatMat'], data['pafMat'])
+# dt = time.time() - t
+# t = time.time()
+# logger.info('elapsed #humans=%d time=%.8f' % (len(humans), dt))
