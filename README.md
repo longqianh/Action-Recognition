@@ -2,6 +2,8 @@
 
 A Demo Project action recognition.
 
+Co-workers: Hongyu Chen, Yuyi Fan, Linlong Zhong
+
 ## Module List
 
 - iOS app with Xcode
