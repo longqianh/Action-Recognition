@@ -1,0 +1,21 @@
+# Uncomment the next line to define a global platform for your project
+# platform :ios, '9.0'
+platform:ios,'9.0'
+
+target 'LiveStreamingDemo' do
+  # Comment the next line if you don't want to use dynamic frameworks
+pod 'LFLiveKit'
+  use_frameworks!
+
+  # Pods for LiveStreamingDemo
+
+  target 'LiveStreamingDemoTests' do
+    inherit! :search_paths
+    # Pods for testing
+  end
+
+  target 'LiveStreamingDemoUITests' do
+    # Pods for testing
+  end
+
+end

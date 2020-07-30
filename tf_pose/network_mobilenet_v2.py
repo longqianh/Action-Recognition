@@ -1,10 +1,12 @@
 from __future__ import absolute_import
 
 import tensorflow as tf
-
+import sys 
+sys.path.append('..')
 from tf_pose import network_base
 from tf_pose.mobilenet import mobilenet_v2
 from tf_pose.network_base import layer
+import tf_slim as slim
 
 
 class Mobilenetv2Network(network_base.BaseNetwork):
@@ -15,22 +17,24 @@ class Mobilenetv2Network(network_base.BaseNetwork):
 
     @layer
     def base(self, input, name):
-        with tf.contrib.slim.arg_scope(mobilenet_v2.training_scope()):
-            net, endpoints = mobilenet_v2.mobilenet_base(input, self.conv_width, finegrain_classification_mode=(self.conv_width < 1.0))
+        with slim.arg_scope(mobilenet_v2.training_scope()):
+            net, endpoints = mobilenet_v2.mobilenet_base(
+                input, self.conv_width, finegrain_classification_mode=(self.conv_width < 1.0))
             for k, tensor in sorted(list(endpoints.items()), key=lambda x: x[0]):
                 self.layers['%s/%s' % (name, k)] = tensor
                 # print(k, tensor.shape)
             return net
 
     def setup(self):
-        depth2 = lambda x: int(x * self.refine_width)
+        def depth2(x): return int(x * self.refine_width)
 
         self.feed('image').base(name='base')
 
         # TODO : add more feature with downsample?
         # self.feed('base/layer_4/output').max_pool(2, 2, 2, 2, name='base/layer_4/output/downsample')
         # self.feed('base/layer_4/output').avg_pool(2, 2, 2, 2, name='base/layer_4/output/downsample')
-        self.feed('base/layer_14/output').upsample(factor='base/layer_7/output', name='base/layer_14/output/upsample')
+        self.feed('base/layer_14/output').upsample(factor='base/layer_7/output',
+                                                   name='base/layer_14/output/upsample')
         (self.feed(
             'base/layer_7/output',
             'base/layer_14/output/upsample',

@@ -7,11 +7,21 @@ import torch.nn as nn
 from model.activation import activation_factory
 
 
-
 class TemporalConv(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1, dilation=1):
         super(TemporalConv, self).__init__()
+
         pad = (kernel_size + (kernel_size - 1) * (dilation - 1) - 1) // 2
+
+        # add
+        # ------
+        self.flag = 0
+        if dilation > 1 and stride > 1:
+            stride = 1
+            self.flag = 1
+
+        # ------
+
         self.conv = nn.Conv2d(
             in_channels,
             out_channels,
@@ -22,9 +32,18 @@ class TemporalConv(nn.Module):
 
         self.bn = nn.BatchNorm2d(out_channels)
 
+        # add ---
+        if self.flag:
+            self.pool = nn.MaxPool2d(kernel_size=(
+                kernel_size, 1), stride=(2, 1), dilation=(1, 1), padding=(1, 0))
+
     def forward(self, x):
         x = self.conv(x)
         x = self.bn(x)
+
+        # add ---
+        if self.flag:
+            x = self.pool(x)
         return x
 
 
@@ -79,7 +98,7 @@ class MultiScale_TemporalConv(nn.Module):
 
         self.branches.append(nn.Sequential(
             nn.Conv2d(in_channels, branch_channels, kernel_size=1,
-                      padding=0, stride=(stride, 1)),
+                      padding=(0, 0), stride=(stride, 1)),
             nn.BatchNorm2d(branch_channels)
         ))
 
@@ -99,12 +118,15 @@ class MultiScale_TemporalConv(nn.Module):
 
     def forward(self, x):
         # Input dim: (N,C,T,V)
+        # print('#')
         res = self.residual(x)
         branch_outs = []
         for tempconv in self.branches:
             out = tempconv(x)
             branch_outs.append(out)
 
+        # for b in branch_outs:
+        #     print(b.shape)
         out = torch.cat(branch_outs, dim=1)  # 横着拼起来
         out += res
         out = self.act(out)
@@ -112,16 +134,28 @@ class MultiScale_TemporalConv(nn.Module):
 
 
 if __name__ == "__main__":
-    mstcn = MultiScale_TemporalConv(288, 288)
+    m = MultiScale_TemporalConv(288, 288)
     x = torch.randn(32, 288, 100, 20)
-    mstcn.forward(x)
-    for name, param in mstcn.named_parameters():
-        ''' named_parameters(): 
-         Returns an iterator over module parameters,
-         yielding both the name of the parameter 
-         as well as the parameter itself. '''
-        print(f'{name}: {param.numel()}')
-    print(sum(p.numel() for p in mstcn.parameters() if p.requires_grad))
+    # m(x)
+    # import tensorflow as tf
+    # mtf = tf.keras.models.load_model('./mstcn.pb')
+    # mtf.summary()
+    # mtf(x)
+    # torch.onnx.export(m, x, 'mstcn.onnx', opset_version=12)
+    # from onnx_tf.backend import prepare
+    # import onnx
+    # om = onnx.load('mstcn.onnx')
+    # tf = prepare(om)
+    # tf.export_graph('mstcn.pb')
+    # mstcn.forward(x)
+    # for name, param in mstcn.named_parameters():
+    ''' named_parameters(): 
+     Returns an iterator over module parameters,
+     yielding both the name of the parameter 
+     as well as the parameter itself. '''
+    # print(f'{name}: {param.numel()}')
+    # print(sum(p.numel() for p in mstcn.parameters() if p.requires_grad))
     ''' numel: 
     Returns the total number of elements in the input tensor.
     '''
+    print(m(x).shape)

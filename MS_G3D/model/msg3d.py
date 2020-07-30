@@ -1,6 +1,6 @@
 import sys
 sys.path.insert(0, '')
-
+sys.path.append('..')
 import math
 import numpy as np
 import torch
@@ -27,6 +27,8 @@ class MS_G3D(nn.Module):
                  embed_factor=1,
                  activation='relu'):
         super().__init__()
+        # print(in_channels, out_channels, A_binary.shape, num_scales,
+        # window_size, window_stride, window_dilation)
         self.window_size = window_size
         self.out_channels = out_channels
         self.embed_channels_in = self.embed_channels_out = out_channels // embed_factor
@@ -57,6 +59,7 @@ class MS_G3D(nn.Module):
 
     def forward(self, x):
         N, _, T, V = x.shape
+        # print(x.shape)
         x = self.in1x1(x)
         # Construct temporal windows and apply MS-GCN
         x = self.gcn3d(x)
@@ -81,6 +84,8 @@ class MultiWindow_MS_G3D(nn.Module):
                  window_dilations=[1, 1]):
 
         super().__init__()
+        # print(in_channels, out_channels, num_scales,
+        # window_sizes, window_stride, window_dilations)
         self.gcn3d = nn.ModuleList([
             MS_G3D(
                 in_channels,
@@ -96,6 +101,7 @@ class MultiWindow_MS_G3D(nn.Module):
 
     def forward(self, x):
         # Input shape: (N, C, T, V)
+        # print(x.shape)
         out_sum = 0
         for gcn3d in self.gcn3d:
             out_sum += gcn3d(x)
@@ -116,7 +122,7 @@ class Model(nn.Module):
 
         Graph = import_class(graph)
         A_binary = Graph().A_binary
-
+        T = 50
         self.data_bn = nn.BatchNorm1d(num_person * in_channels * num_point)
 
         # channels
@@ -155,8 +161,11 @@ class Model(nn.Module):
         self.fc = nn.Linear(c3, num_class)
 
     def forward(self, x):
-        N, C, T, V, M = x.size()
-        x = x.permute(0, 4, 3, 1, 2).contiguous().view(N, M * V * C, T)
+        # N = 1
+        # C, T, V, M = x.shape
+          # x = x.unsqueeze(0)
+        # x = x.permute(0, 4, 3, 1, 2).contiguous().view(N, M * V * C, T)
+        N, C, T, V, M = 1, 3, 50, 18, 2
         x = self.data_bn(x)
         x = x.view(N * M, V, C, T).permute(0, 2, 3, 1).contiguous()
 
@@ -179,23 +188,35 @@ class Model(nn.Module):
         out = self.fc(out)
         return out
 
+    def init_reshape(self, x):
+        x = x.unsqueeze(0)
+        N, C, T, V, M = 1, 3, 50, 18, 2
+        return x.permute(0, 4, 3, 1, 2).contiguous().view(N, M * V * C, T)
+
 
 if __name__ == "__main__":
-    # For debugging purposes
-    import sys
-    sys.path.append('..')
+    from graph.kinetics import AdjMatrixGraph
+    graph = AdjMatrixGraph()
+    A_binary = graph.A_binary
+    N, C, T, V, M = 1, 3, 50, 18, 2
+    m1 = MultiWindow_MS_G3D(192, 384, A_binary, 8, [3, 5], 2, [1, 1])
+    x1 = torch.randn(2, 192, 50, 18)
 
-    model = Model(
-        num_class=60,
-        num_point=25,
-        num_person=2,
-        num_gcn_scales=13,
-        num_g3d_scales=6,
-        graph='graph.ntu_rgb_d.AdjMatrixGraph'
-    )
+    m = Model(num_class=400, num_point=18, num_person=2,
+              num_gcn_scales=8, num_g3d_scales=8, graph='graph.kinetics.AdjMatrixGraph')
+    x = torch.randn(C, T, V, M)
+    x = m.init_reshape(x)
+    # print(x.shape)
 
-    N, C, T, V, M = 6, 3, 50, 25, 2
-    x = torch.randn(N, C, T, V, M)
-    model(x)
+    # x = x.permute(0, 4, 3, 1, 2).contiguous().view(N, M * V * C, T)
+    m(x)
+    # from torchsummaryX import summary
+    # summary(m, torch.zeros(108))
+    # torch.onnx.export(m, x, 'msg3d.onnx', opset_version=12)
+    # import onnx
+    # omx = onnx.load('msg3d.onnx')
+    # from onnx_tf.backend import prepare
+    # tfx = prepare(omx)
+    # tfx.export_graph('msg3d.pb')
 
-    print('Model total # params:', count_params(model))
+    # # # # # print('Model total # params:', count_params(model))
