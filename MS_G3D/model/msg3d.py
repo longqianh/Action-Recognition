@@ -108,6 +108,16 @@ class MultiWindow_MS_G3D(nn.Module):
         # no activation
         return out_sum
 
+class Pass(nn.Module):
+    """docstring for myBatchNorm"""
+    def __init__(self,shape):
+        super(Pass, self).__init__()
+        self.placeholder=nn.Parameter(torch.zeros(shape))
+
+
+
+    def forward(self,x):
+        return x
 
 class Model(nn.Module):
     def __init__(self,
@@ -120,10 +130,14 @@ class Model(nn.Module):
                  in_channels=3):
         super(Model, self).__init__()
 
+        
+
         Graph = import_class(graph)
         A_binary = Graph().A_binary
         T = 50
+        self.passx=Pass((num_person * in_channels * num_point,T))
         self.data_bn = nn.BatchNorm1d(num_person * in_channels * num_point)
+
 
         # channels
         c1 = 96
@@ -161,13 +175,15 @@ class Model(nn.Module):
         self.fc = nn.Linear(c3, num_class)
 
     def forward(self, x):
-        # N = 1
-        # C, T, V, M = x.shape
-          # x = x.unsqueeze(0)
-        # x = x.permute(0, 4, 3, 1, 2).contiguous().view(N, M * V * C, T)
-        N, C, T, V, M = 1, 3, 50, 18, 2
+        
+        C, T, V, M = x.shape
+
+        x = x.permute(3,2,0,1).contiguous().view(1, M * V * C, T)
+        x= self.passx(x)
+
         x = self.data_bn(x)
-        x = x.view(N * M, V, C, T).permute(0, 2, 3, 1).contiguous()
+        # x = self.data_bn(x.unsqueeze（-1).squeeze（-1)
+        x = x.view(M, V, C, T).permute(0, 2, 3, 1).contiguous()
 
         # Apply activation to the sum of the pathways
         x = F.relu(self.sgcn1(x) + self.gcn3d1(x), inplace=True)
@@ -180,36 +196,48 @@ class Model(nn.Module):
         x = self.tcn3(x)
 
         out = x
+        # print(x.shape)
         out_channels = out.size(1)
-        out = out.view(N, M, out_channels, -1)
-        out = out.mean(3)   # Global Average Pooling (Spatial+Temporal)
-        out = out.mean(1)   # Average pool number of bodies in the sequence
+        # out = out.view(M, out_channels, -1)
+        # out = out.mean(2)   # Global Average Pooling (Spatial+Temporal)
+        # out = out.mean(0)   # Average pool number of bodies in the sequence
+        # 不能少那一维！
+        out = out.view(1, M, out_channels, -1)
+        out = out.mean(3) 
+        out = out.mean(1)   
 
         out = self.fc(out)
         return out
 
-    def init_reshape(self, x):
-        x = x.unsqueeze(0)
-        N, C, T, V, M = 1, 3, 50, 18, 2
-        return x.permute(0, 4, 3, 1, 2).contiguous().view(N, M * V * C, T)
+    # def init_reshape(self, x):
+    #     # x = x.unsqueeze(0)
+    #     C, T, V, M = 3, 50, 18, 2
+    #     return x.permute(3,2,0,1).contiguous().view(1, M * V * C, T)
 
 
 if __name__ == "__main__":
-    from graph.kinetics import AdjMatrixGraph
-    graph = AdjMatrixGraph()
-    A_binary = graph.A_binary
+    # from graph.kinetics import AdjMatrixGraph
+    # graph = AdjMatrixGraph()
+    # A_binary = graph.A_binary
     N, C, T, V, M = 1, 3, 50, 18, 2
-    m1 = MultiWindow_MS_G3D(192, 384, A_binary, 8, [3, 5], 2, [1, 1])
-    x1 = torch.randn(2, 192, 50, 18)
+    # m1 = MultiWindow_MS_G3D(192, 384, A_binary, 8, [3, 5], 2, [1, 1])
+    # x1 = torch.ones(2, 192, 50, 18)
 
     m = Model(num_class=400, num_point=18, num_person=2,
-              num_gcn_scales=8, num_g3d_scales=8, graph='graph.kinetics.AdjMatrixGraph')
-    x = torch.randn(C, T, V, M)
-    x = m.init_reshape(x)
-    # print(x.shape)
+              num_gcn_scales=8, num_g3d_scales=8, graph='graph.kinetics.AdjMatrixGraph').eval()
+    state=m.state_dict()
 
-    # x = x.permute(0, 4, 3, 1, 2).contiguous().view(N, M * V * C, T)
-    m(x)
+    x = torch.ones(C, T, V, M)
+    pt_model_path = './pretrained-models/kinetics-joint.pt'
+    
+    pretrained_state_dict=torch.load('../pretrained-models/kinetics-joint.pt')
+    
+    state.update(pretrained_state_dict)
+    m.load_state_dict(state)
+    # print(m.state_dict().get('passx.placeholder'))
+    # print(m.state_dict())
+    
+    print(m(x).argmax())
     # from torchsummaryX import summary
     # summary(m, torch.zeros(108))
     # torch.onnx.export(m, x, 'msg3d.onnx', opset_version=12)

@@ -49,6 +49,32 @@ def write_coco_json(human, image_w, image_h):
                           round_int(body_part.y * image_h), 2])
     return keypoints
 
+def write_kps(human,image_w,image_h):
+    keypoints = []
+    coco_ids = [0, 15, 14, 17, 16, 5, 2, 6, 3, 7, 4, 11, 8, 12, 9, 13, 10]
+    for coco_id in coco_ids:
+        if coco_id not in human.body_parts.keys():
+            keypoints.extend([0, 0, 0])
+            continue
+        body_part = human.body_parts[coco_id]
+        keypoints.extend([round_int(body_part.x * image_w),
+                          round_int(body_part.y * image_h), round(body_part.score,2)])
+    return keypoints
+
+def write_normkps(human):
+    keypoints = []
+    coco_ids = [0, 15, 14, 17, 16, 5, 2, 6, 3, 7, 4, 11, 8, 12, 9, 13, 10]
+    for coco_id in coco_ids:
+        if coco_id not in human.body_parts.keys():
+            keypoints.extend([0, 0, 0])
+            continue
+        body_part = human.body_parts[coco_id]
+        keypoints.extend([(round(body_part.x,2),
+                          round(body_part.y,2)), round(body_part.score,2)])
+    return keypoints
+
+
+# T,M,V,C
 
 # if __name__ == '__main__':
 #     parser = argparse.ArgumentParser(

@@ -318,6 +318,8 @@ class TfPoseEstimator:
         # load graph
         logger.info('loading graph from %s(default size=%dx%d)' %
                     (graph_path, target_size[0], target_size[1]))
+
+        # load model
         with tf.io.gfile.GFile(graph_path, 'rb') as f:
             graph_def = tf.compat.v1.GraphDef()
             graph_def.ParseFromString(f.read())
@@ -337,18 +339,22 @@ class TfPoseEstimator:
         #         use_calibration=True,
         #     )
 
+        # put model into default graph
         self.graph = tf.compat.v1.get_default_graph()
         tf.import_graph_def(graph_def, name='TfPoseEstimator')
+        
+        # create session
         self.persistent_sess = tf.compat.v1.Session(
             graph=self.graph, config=tf_config)
 
-        # for ts in [n.name for n in tf.compat.v1.get_default_graph().as_graph_def().node]:
-        #     print(ts)
-
-        self.tensor_image = self.graph.get_tensor_by_name(
-            'TfPoseEstimator/image:0')
+        self.tensor_image = self.graph.get_tensor_by_name('image:0')
+        
         self.tensor_output = self.graph.get_tensor_by_name(
-            'TfPoseEstimator/Openpose/concat_stage7')
+            'Openpose/concat_stage7:0')
+
+        tf.compat.v1.disable_eager_execution()
+
+
         self.tensor_heatMat = self.tensor_output[:, :, :, :19]
         self.tensor_pafMat = self.tensor_output[:, :, :, 19:]
         self.upsample_size = tf.compat.v1.placeholder(
@@ -363,6 +369,7 @@ class TfPoseEstimator:
             smoother = Smoother({'data': self.tensor_heatMat_up}, 25, 3.0, 19)
         else:
             smoother = Smoother({'data': self.tensor_heatMat_up}, 25, 3.0)
+       
         gaussian_heatMat = smoother.get_output()
 
         max_pooled_in_tensor = tf.nn.pool(input=gaussian_heatMat, window_shape=(

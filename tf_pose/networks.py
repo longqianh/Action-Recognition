@@ -138,12 +138,12 @@ def get_graph_path(model_name):
         'mobilenet_v2_small': 'graph/mobilenet_v2_small/graph_opt.pb',
     }
 
-    base_data_dir = dirname(dirname(abspath(__file__)))
-    if os.path.exists(os.path.join(base_data_dir, 'models')):
-        base_data_dir = os.path.join(base_data_dir, 'models')
-    else:
-        base_data_dir = os.path.join(base_data_dir, 'tf_pose_data')
-
+    base_data_dir = dirname(abspath(__file__))
+    # if os.path.exists(os.path.join(base_data_dir, 'models')):
+    #     base_data_dir = os.path.join(base_data_dir, 'models')
+    # else:
+    #     base_data_dir = os.path.join(base_data_dir, 'tf_pose_data')
+    base_data_dir = os.path.join(base_data_dir, 'model')
     graph_path = os.path.join(base_data_dir, dyn_graph_path[model_name])
     if os.path.isfile(graph_path):
         return graph_path
